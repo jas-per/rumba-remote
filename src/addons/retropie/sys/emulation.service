@@ -1,0 +1,14 @@
+[Unit]
+Description=emulationstation on demand
+
+[Service]
+WorkingDirectory=/home/pi
+Type=simple
+StandardInput=tty-force
+TTYVHangup=yes
+TTYPath=/dev/tty16
+TTYReset=yes
+
+ExecStart=/home/pi/rumba-remote/sys/run-emulationstation.sh
+ExecStop=/home/pi/rumba-remote/sys/multi_switch.sh --es-systemd && /bin/kill -INT ${MAINPID}
+ExecReload=/home/pi/rumba-remote/sys/multi_switch.sh --es-restart

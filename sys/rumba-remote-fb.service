@@ -1,0 +1,24 @@
+[Unit]
+Description=remote control app for rumba running directly on framebuffer
+Before=network.target
+After=dbus.service
+Wants=network.target
+
+[Service]
+Type=simple
+User=pi
+Group=pi
+WorkingDirectory=/home/pi/rumba-remote/src/
+StandardInput=tty-force
+TTYPath=/dev/tty7
+ExecStart=/home/pi/rumba-remote/src/rumba-remote.py
+
+ExecStop=/bin/kill -INT ${MAINPID}
+ExecReload=/bin/kill -INT ${MAINPID} && / /home/pi/rumba-remote/src/rumba-remote.py
+
+PermissionsStartOnly=true
+ExecStartPre=/bin/chvt 7
+ExecStartPre=+bash -c 'echo 0 > /sys/class/graphics/fbcon/cursor_blink'
+
+[Install]
+WantedBy=multi-user.target

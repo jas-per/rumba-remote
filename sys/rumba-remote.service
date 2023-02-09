@@ -1,0 +1,16 @@
+[Unit]
+Description=rum.ba remote
+After=sway.service
+
+[Service]
+Type=simple
+User=pi
+Group=pi
+WorkingDirectory=/home/pi/rumba-remote
+Environment="XDG_RUNTIME_DIR=/run/user/1000"
+StandardOutput=append:/home/pi/.config/rumba-remote/daemon.log
+StandardError=append:/home/pi/.config/rumba-remote/daemon.log
+ExecStart=/home/pi/rumba-remote/src/rumba-remote.py --configFile /home/pi/.config/rumba-remote/rumba-remote.conf
+
+[Install]
+WantedBy=sway-session.target

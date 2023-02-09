@@ -1,0 +1,21 @@
+# config for https://wayland.emersion.fr/kanshi
+# to toggle video output of rumba jukebox
+# when a second screen gets (dis-)connected
+# copy to /home/pi/.config/kanshi/config
+#
+# please beware: kanshi or equivalents on X (autorandr)
+# are not designed to detect if a screen is turned on or not
+# -> they detect if a cable/docking station is pysically connected!
+# unfortunately on linux it is currently not possible
+# to reliably detect if a screen is powered on or not
+
+profile hdmi2enable {
+    output HDMI-A-1 enable
+    output HDMI-A-2 enable
+    exec /home/pi/rumba-remote/sys/kanshiSignal.sh 1
+}
+
+profile hdmi2disable {
+    output HDMI-A-1 enable
+    exec /home/pi/rumba-remote/sys/kanshiSignal.sh 0
+}

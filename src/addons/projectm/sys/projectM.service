@@ -1,0 +1,16 @@
+[Unit]
+Description=projectM visualizer
+After=sway.service
+
+[Service]
+Type=simple
+User=pi
+Group=pi
+Environment="XDG_RUNTIME_DIR=/run/user/1000"
+StandardOutput=append:/home/pi/.projectM/daemon.log
+StandardError=append:/home/pi/.projectM/daemon.log
+ExecStart=/usr/bin/projectMSDL
+
+[Install]
+WantedBy=sway-session.target
+
