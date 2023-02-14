@@ -6,13 +6,13 @@ status display/remote control for rumba music server (using the subsonic protoco
 </p>
 
 <p align="center">
-<img src="https://jas-per.github.io/rum.ba/raw/posts/230212-remote/02-4keys01.jpg" alt="" style="width:420px;align:center;"/>
-<img src="https://jas-per.github.io/rum.ba/raw/posts/230212-remote/03-4keys02.jpg" alt="" style="width:420px;align:center;"/>
+<img src="https://jas-per.github.io/rum.ba/raw/posts/230212-remote/02-4keys01.jpg" alt="" style="width:440px;align:center;"/>
+<img src="https://jas-per.github.io/rum.ba/raw/posts/230212-remote/03-4keys02.jpg" alt="" style="width:380px;align:center;"/>
 </p>
 
 <p align="center">
 <img src="https://jas-per.github.io/rum.ba/raw/posts/230212-remote/04-car-installation.jpg" alt="" style="width:420px;align:center;"/>
-<img src="https://jas-per.github.io/rum.ba/raw/posts/230212-remote/05-4keys06.jpg" alt="" style="width:420px;align:center;"/>
+<img src="https://jas-per.github.io/rum.ba/raw/posts/230212-remote/05-4keys06.jpg" alt="" style="width:400px;align:center;"/>
 </p>
 
 <p align="center">
