@@ -62,8 +62,7 @@ class Handler():
             self.scrnsvrTimer = asyncio.get_event_loop().call_later(0.01, self.updateSlide)
 
         # implement touch here because of its shared state with the display
-        touch = config.getboolean('touch', fallback=False)
-        if touch:
+        if config.getboolean('touch', fallback=False):
             self.log.debug('Initializing touch support')
             loop = asyncio.get_event_loop()
             self.eventQueue = asyncio.Queue()
@@ -150,6 +149,20 @@ class Handler():
             if event.type == pygame.QUIT:
                 break
             if event.type == pygame.FINGERUP:
+                # if the screen is rotated by the app instead of the compositor,
+                # the touch input needs transformation as well
+                if self.ui.rotate == 1:
+                    tmpX = event.x
+                    event.x = 1 - event.y
+                    event.y = tmpX
+                elif self.ui.rotate == 2:
+                    event.x = 1 - event.x
+                    event.y = 1 - event.y
+                elif self.ui.rotate == 3:
+                    tmpX = event.x
+                    event.x = event.y
+                    event.y = 1 - tmpX
+
                 self.log.debug('Touch event: x=(%s) y=(%s)', event.x, event.y)
 
                 if controller.state.menuPage is not None:
