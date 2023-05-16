@@ -49,7 +49,7 @@ class Display():
         self.slides = []
         self.curSlide = None
         # display resolution / orientation
-        self.rotate = config.getint('rotation', fallback=0)
+        self.rotate = config.getint('rotation', fallback='auto')
         if config.get('resolution', fallback=None) is not None:
             res = config.get('resolution').split('x')
             if len(res) == 2:
@@ -73,8 +73,15 @@ class Display():
 
         if self.displaySize is None:
             self.displaySize = (pygame.display.Info().current_w, pygame.display.Info().current_h)
-            # XXX: add autorotate config option and set self.rotate == 1 .. here if requested
             self.log.info('Using detected screen size: %s', self.displaySize)
+
+        if self.rotate == 'auto':
+            # if vertical resolution > horizontal and rotation has not been explicitly configured
+            # rotate screen by 270° (bc that fits my pinephone with keyboard - should use orientation from sensors..)
+            if self.displaySize[0] < self.displaySize[1]:
+                self.rotate = 3
+            else:
+                self.rotate = 0
 
         if self.rotate == 1 or self.rotate == 3:
             self.screen = pygame.display.set_mode(self.displaySize, pygame.FULLSCREEN)
