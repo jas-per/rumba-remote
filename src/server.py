@@ -252,9 +252,14 @@ class Connector():
         await self._fetch('jukeboxControl', {'action': 'skip', 'index': newIndex, 'offset': 0})
         return await self._fetch('jukeboxControl', {'action': 'stop'})
 
-    async def _skip(self, index, offset):
-        if len(self.jukebox.curSongs) > index:
-            return await self._fetch('jukeboxControl', {'action': 'skip', 'index': index, 'offset': offset})
+    async def _skip(self, index=None, offset=None):
+        if len(self.jukebox.curSongs) > 0:
+            if index is None:
+                index = self.jukebox.curIndex
+            if len(self.jukebox.curSongs) > index > -1:
+                if offset is None:
+                    offset = 0
+                return await self._fetch('jukeboxControl', {'action': 'skip', 'index': index, 'offset': offset})
 
     async def _star(self, starred):
         """ star/unstar currently playing track """

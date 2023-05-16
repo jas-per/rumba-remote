@@ -1,8 +1,10 @@
 import asyncio
 import logging
 import datetime
+import math
 from pathlib import Path
 import pluggy
+import pygame
 from . import pygameUI
 
 # needs pygame package installed
@@ -59,8 +61,14 @@ class Handler():
         if self.scrnsvrActivated:
             self.scrnsvrTimer = asyncio.get_event_loop().call_later(0.01, self.updateSlide)
 
-        # XXX: init touch here (because of its shared state with the display)
-        # config.getboolean('touch', fallback=False)
+        # implement touch here because of its shared state with the display
+        touch = config.getboolean('touch', fallback=False)
+        if touch:
+            self.log.debug('Initializing touch support')
+            loop = asyncio.get_event_loop()
+            self.eventQueue = asyncio.Queue()
+            self.pygameHandler = loop.run_in_executor(None, self.pygameEventLoop, loop)
+            self.eventTask = asyncio.ensure_future(self._handleTouchEvents(controller))
 
         # start tasks for clock and animations
         asyncio.ensure_future(self.initTasks())
@@ -121,6 +129,64 @@ class Handler():
         else:
             self.log.debug('redraw UI')
             self.ui.update(state)
+
+    def pygameEventLoop(self, loop):
+        """ touch event listener. because wait() is blocking,
+            handler gets run in own thread via run_in_executor()
+            fills an asyncio.Queue that can be listened to by async handlers
+        """
+        while True:
+            event = pygame.event.wait()
+            if event.type == pygame.QUIT:
+                return True
+            if event.type == pygame.WINDOWFOCUSLOST:
+                self.log.error('lost keyboard input :(')
+            if event.type == pygame.FINGERUP:  # only interested in touch events
+                asyncio.run_coroutine_threadsafe(self.eventQueue.put(event), loop=loop)
+
+    async def _handleTouchEvents(self, controller):
+        while True:
+            event = await self.eventQueue.get()
+            if event.type == pygame.QUIT:
+                break
+            if event.type == pygame.FINGERUP:
+                self.log.debug('Touch event: x=(%s) y=(%s)', event.x, event.y)
+
+                if controller.state.menuPage is not None:
+                    if event.y > 0.8:
+                        no = math.floor((event.x - 0.01) * len(controller.state.menu))
+                        self.log.debug('Touch-event: %s selected (no %s)', controller.state.menu[no], no)
+                        asyncio.ensure_future(controller.onInput(controller.state.menu[no]))
+                    elif controller.state.confirmTarget is not None:
+                        self.log.debug('Touch-event: Cancel confim')
+                        asyncio.ensure_future(controller.onInput('MENU.TOGGLE'))
+                    else:
+                        self.log.debug('Touch-event: hide menu')
+                        controller.resetMenu()
+                else:
+                    if controller.state.jukebox.curSong is not None:
+                        if self.scrnsvrRunning or event.y < 0.85:
+                            if controller.menuAlignLeft and event.x < 0.25 \
+                               or not controller.menuAlignLeft and event.x > 0.75:
+                                self.log.debug('Touch-event: show menu')
+                                asyncio.ensure_future(controller.onInput('MENU.TOGGLE'))
+                            else:
+                                self.log.debug('Touch-event: toggle play/pause')
+                                asyncio.ensure_future(controller.onInput('RUMBA.PLAYPAUSE'))
+                        elif event.x < 0.15:
+                            self.log.debug('Touch-event: prev song')
+                            asyncio.ensure_future(controller.onInput('RUMBA.PREV'))
+                        elif event.x > 0.85:
+                            self.log.debug('Touch-event: next song')
+                            asyncio.ensure_future(controller.onInput('RUMBA.NEXT'))
+                        else:
+                            curDuration = controller.state.jukebox.curSong['duration']
+                            offset = math.floor(curDuration * ((event.x - 0.15) / 0.7))
+                            self.log.debug('Touch-event: skip to %s s', offset)
+                            asyncio.ensure_future(controller.onInput('RUMBA.SKIP', offset))
+                    else:
+                        self.log.debug('Touch-event: show menu')
+                        asyncio.ensure_future(controller.onInput('MENU.TOGGLE'))
 
     @hookimpl
     def onRequestRunning(self, started, state):
@@ -211,7 +277,13 @@ class Handler():
     @hookimpl
     def onClose(self):
         """ shutdown, stop running tasks """
+        self.log.debug('shutdown, stopping display/touch tasks')
         self.clockTask.cancel()
         self.loaderTask.cancel()
         if self.scrnsvrTimer is not None:
             self.scrnsvrTimer.cancel()
+        if self.eventTask is not None:
+            pygame.event.post(pygame.event.Event(pygame.QUIT))
+            pygame.event.pump()
+            self.pygameHandler.cancel()
+            self.eventTask.cancel()

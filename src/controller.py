@@ -153,6 +153,8 @@ KERNEL=="uinput", SUBSYSTEM=="misc", OPTIONS+="static_node=uinput", TAG+="uacces
             await self.rumba('startStop')
         elif action == 'NEXT':
             await self.rumba('nextSong')
+        elif action == 'SKIP':
+            await self.rumba('skip', offset=val)
         elif action == 'STAR':
             await self.rumba('star', starred=True)
             self.updateMenuState(self.state.menuPage)  # redraw menu
@@ -275,7 +277,9 @@ KERNEL=="uinput", SUBSYSTEM=="misc", OPTIONS+="static_node=uinput", TAG+="uacces
                         # toggle current menu row
                         if self.state.confirmTarget is None:
                             if self.state.menuPage is None:
-                                newPage = 1 if len(self.menuRows) > 0 else 0
+                                # start menu with first page..
+                                newPage = 0
+                                # or rather with second..? newPage = 1 if len(self.menuRows) > 0 else 0
                             else:
                                 newPage = (self.state.menuPage + 1) % len(self.menuRows)
                             self.updateMenuState(newPage)
@@ -292,7 +296,7 @@ KERNEL=="uinput", SUBSYSTEM=="misc", OPTIONS+="static_node=uinput", TAG+="uacces
             # call action
             if action.startswith('KEY.'):  # inject key(-combo)
                 await self.pressKey(action.split('.', 1)[1])
-            elif action not in ('MENU.TOGGLE', 'RUMBA.SWITCH', 'RUMBA.NOSWITCH'):
+            elif action not in ('MENU.TOGGLE', 'MENU.NOTOGGLE'):
                 if self.checkDoubleclick(action):
                     mod, func = action.split('.')
                     # loads module if not initialized yet
@@ -430,9 +434,9 @@ KERNEL=="uinput", SUBSYSTEM=="misc", OPTIONS+="static_node=uinput", TAG+="uacces
                     self.state.menu[cnt] = 'RUMBA.UNSTAR'
 
             if self.menuAlignLeft:
-                self.state.menu.insert(0, 'RUMBA.SWITCH')  # prepend
+                self.state.menu.insert(0, 'MENU.TOGGLE')  # prepend
             else:
-                self.state.menu.append('RUMBA.SWITCH')
+                self.state.menu.append('MENU.TOGGLE')
 
             if self.state.menuPage != newPage:
                 self.state.menuPage = newPage

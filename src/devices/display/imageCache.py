@@ -27,7 +27,7 @@ class ImageCache():
         if iconType not in self.cachedIcons:
             mod, func = iconType.split('.', 1)
             try:
-                if mod == 'RUMBA':
+                if mod in ('RUMBA', 'MENU'):
                     img = pygame.image.load(os.path.join(self.appDir, 'res', 'icons', f'{func}.png'))
                 elif mod == 'KEY':  # backdrop keyboard cap
                     img = pygame.image.load(os.path.join(self.appDir, 'res', 'icons', 'KEY.png'))
