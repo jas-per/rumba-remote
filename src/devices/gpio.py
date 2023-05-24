@@ -29,49 +29,51 @@ class Handler():
         GPIO.setmode(GPIO.BOARD)
 
         # setup GPIO-buttons
-        for cfg in config.get("input", "").split('\n'):
-            try:
-                func, pin = self._parseConfig(cfg)
-                # switch vs pushbutton:
-                # supply pin through lambda to relay on/off state for switch
-                if pin.startswith('s'):
-                    pin = int(pin[1:])
-                    p = pin
-                else:
-                    pin = int(pin)
-                    p = None
-                self.log.debug(
-                    "setup %s on %s pin %s ('input = %s')",
-                    func, 'switch' if p else 'pushbutton', pin, cfg)
+        if config.get("input"):
+            for cfg in config.get("input").split('\n'):
+                try:
+                    func, pin = self._parseConfig(cfg)
+                    # switch vs pushbutton:
+                    # supply pin through lambda to relay on/off state for switch
+                    if pin.startswith('s'):
+                        pin = int(pin[1:])
+                        p = pin
+                    else:
+                        pin = int(pin)
+                        p = None
+                    self.log.debug(
+                        "setup %s on %s pin %s ('input = %s')",
+                        func, 'switch' if p else 'pushbutton', pin, cfg)
 
-                GPIO.setup(pin, GPIO.IN, pull_up_down=GPIO.PUD_DOWN)
-                GPIO.add_event_detect(
-                    pin,
-                    GPIO.RISING if p is None else GPIO.BOTH,  # trigger on both flanks vs just once
-                    callback=lambda _, f=func, p=p: loop.call_soon_threadsafe(self._callAsync, f, p),
-                    bouncetime=400
-                )
-                # call switch functions with initial state after startup
-                if p is not None:
-                    self.log.debug('%s(%s) switch pin %s will be called after startup', func, GPIO.input(p), pin)
-                    asyncio.ensure_future(self.inputHandler.onInput(func, GPIO.input(p)))
+                    GPIO.setup(pin, GPIO.IN, pull_up_down=GPIO.PUD_DOWN)
+                    GPIO.add_event_detect(
+                        pin,
+                        GPIO.RISING if p is None else GPIO.BOTH,  # trigger on both flanks vs just once
+                        callback=lambda _, f=func, p=p: loop.call_soon_threadsafe(self._callAsync, f, p),
+                        bouncetime=400
+                    )
+                    # call switch functions with initial state after startup
+                    if p is not None:
+                        self.log.debug('%s(%s) switch pin %s will be called after startup', func, GPIO.input(p), pin)
+                        asyncio.ensure_future(self.inputHandler.onInput(func, GPIO.input(p)))
 
-            except ValueError as VE:
-                self.log.error(
-                    "config error: 'input=%s'\n%s\ninput config should be should be 'input=FUNCTION, PIN'",
-                    cfg, VE)
+                except ValueError as VE:
+                    self.log.error(
+                        "config error: 'input=%s'\n%s\ninput config should be should be 'input=FUNCTION, PIN'",
+                        cfg, VE)
 
         # setup GPIO-outputs
-        for output in config.get("output", "").split('\n'):
-            try:
-                func, pin = self._parseConfig(output)
-                self.log.debug("setup %s on pin %s ('output = %s')", func, pin, output)
-                GPIO.setup(int(pin), GPIO.OUT)
-                self.outputs[func] = int(pin)
-            except ValueError as VE:
-                self.log.error(
-                    "config error: 'output=%s'\n%s\noutput config should be should be 'output=FUNCTION, PIN'",
-                    output, VE)
+        if config.get("output"):
+            for output in config.get("output").split('\n'):
+                try:
+                    func, pin = self._parseConfig(output)
+                    self.log.debug("setup %s on pin %s ('output = %s')", func, pin, output)
+                    GPIO.setup(int(pin), GPIO.OUT)
+                    self.outputs[func] = int(pin)
+                except ValueError as VE:
+                    self.log.error(
+                        "config error: 'output=%s'\n%s\noutput config should be should be 'output=FUNCTION, PIN'",
+                        output, VE)
 
         # quick access to the menu leds
         self.outputsMenu = [pin for (func, pin) in sorted(self.outputs.items()) if func.startswith('MENU')]
