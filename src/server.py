@@ -170,7 +170,7 @@ class Connector():
         else:  # set pls and resume on track/pos
             resp = await self._fetch('jukeboxControl', {'action': 'stop'})
             resp = await self._fetch('jukeboxControl', reqParams)
-            resp = await self._fetch('jukeboxControl', {'action': 'skip', 'index': index, 'position': pos})
+            resp = await self._fetch('jukeboxControl', {'action': 'skip', 'index': index, 'offset': pos})
         self.log.debug('PLS changed, resume: %s', (index is not None and pos is not None))
         return resp
 
@@ -185,7 +185,7 @@ class Connector():
         resp = await self._setPLS(newIDs)
         if resp['subsonic-response']['jukeboxStatus']['playing']:
             return resp
-        return await self._fetch('jukeboxControl', {'action': 'skip', 'index': 0, 'position': 0})
+        return await self._fetch('jukeboxControl', {'action': 'skip', 'index': 0, 'offset': 0})
 
     async def _insertSimilar(self):
         """ add full album around currently playing track or 20 random songs from the same artist """
