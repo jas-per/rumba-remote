@@ -19,6 +19,7 @@ class State:
     menuPage: Optional[int] = None  # currently shown menu page
     activeModule: Optional[Any] = None  # Optional[Module]
     requestRunning: bool = False  # synchronizes user interaction with the Jukebox
+    confirmState: Optional[bool] = None  # modal confirmation dialog
     confirmTarget: Optional[int] = None  # for user input that has to be confirmed with dialog
     confirmText: str = ''  # text for confirmation dialog
     alert: str = ''  # text for alert dialog
@@ -34,6 +35,11 @@ class State:
     def rumbaActive(self):
         """ Info about toggle between rumba jukebox and modal addons """
         return self.activeModule.name == 'rumba'
+
+    @property
+    def toggleAction(self):
+        """ Action for toggle button """
+        return 'MENU.TOGGLE' if self.activeModule.name == 'rumba' else 'RUMBA.ENABLE'
 
 
 # lots of additional methods bc all pluggy-hooks are directly defined here..
@@ -58,11 +64,12 @@ class InputHandler():
     def __init__(self, config, pluginManager):
         self.log = logging.getLogger('ctrl')
         self.appDir = config['controller']['appDir']  # app base directory
+        self.configDir = config['controller']['configDir']  # base directory for config files
 
         self.menuRows = config['controller']['menuRows']
-        self.menuAlignLeft = config['controller']['menuAlignLeft']
         self.menuTimeout = config['controller']['menuTimeout']
         self.menuTimer = None  # schedules call to menu hide()
+        self.confirmModal = None  # synchronizes feedback for direct confirmation
         self.videoEnabled = config['controller']['enableVideo']
         self.config = config['controller']  # ref for delayed init of addons
 
@@ -77,6 +84,10 @@ class InputHandler():
         self.name = 'rumba'
 
         self.pm = pluginManager
+
+        # load addons configured explicitly for startup init (lazy loading for all others)
+        for addon in config['controller']['initAddons']:
+            self.getModule(addon)
 
         self.updateMenuState()  # init menu
 
@@ -102,7 +113,7 @@ class InputHandler():
 
 KERNEL=="uinput", SUBSYSTEM=="misc", OPTIONS+="static_node=uinput", TAG+="uaccess", GROUP="input", MODE="0660"
 >>>
-            XXX: use proper wayland library
+            XXX: use proper wayland library, probably via https://gitlab.freedesktop.org/libinput/libei
         """
         # create virtual uinput keyboard with all available keys
         allKeys = [
@@ -269,6 +280,16 @@ KERNEL=="uinput", SUBSYSTEM=="misc", OPTIONS+="static_node=uinput", TAG+="uacces
         """
         self.log.debug('onInput: %s(%s)', action, val)
         try:
+            # modal confirmation requested
+            if self.confirmModal is not None:
+                if action in ('MENU.TOGGLE', 'RUMBA.ENABLE'):
+                    self.log.debug('Denying confirmation request')
+                    self.state.confirmState = False
+                else:
+                    self.log.debug('Accepting confirmation request')
+                    self.state.confirmState = True
+                self.confirmModal.set()
+                return
             # toggle menu or map menu key to action
             if action.startswith('MENU'):
                 index = action.split('.')[1]
@@ -279,7 +300,6 @@ KERNEL=="uinput", SUBSYSTEM=="misc", OPTIONS+="static_node=uinput", TAG+="uacces
                             if self.state.menuPage is None:
                                 # start menu with first page..
                                 newPage = 0
-                                # or rather with second..? newPage = 1 if len(self.menuRows) > 0 else 0
                             else:
                                 newPage = (self.state.menuPage + 1) % len(self.menuRows)
                             self.updateMenuState(newPage)
@@ -289,10 +309,8 @@ KERNEL=="uinput", SUBSYSTEM=="misc", OPTIONS+="static_node=uinput", TAG+="uacces
                         # modal addon active, toggle button acts as 'RUMBA.ENABLE'
                         action = 'RUMBA.ENABLE'
                 else:
-                    # take action from current menu row
-                    if not self.menuAlignLeft:
-                        index = int(index) - 1
-                    action = self.state.menu[int(index)]
+                    # take action from current menu row (button index starts at 1)
+                    action = self.state.menu[int(index) - 1]
             # call action
             if action.startswith('KEY.'):  # inject key(-combo)
                 await self.pressKey(action.split('.', 1)[1])
@@ -433,25 +451,14 @@ KERNEL=="uinput", SUBSYSTEM=="misc", OPTIONS+="static_node=uinput", TAG+="uacces
                 elif func == 'STAR' and self.state.jukebox.curSong and self.state.jukebox.curSong.get('starred', False):
                     self.state.menu[cnt] = 'RUMBA.UNSTAR'
 
-            if self.menuAlignLeft:
-                self.state.menu.insert(0, 'MENU.TOGGLE')  # prepend
-            else:
-                self.state.menu.append('MENU.TOGGLE')
-
             if self.state.menuPage != newPage:
                 self.state.menuPage = newPage
-                self.changeConfirm()  # close confirm dlg if present
-                self.onToggleMenu(newPage, self.state.menu, self.state)
         else:
             # If a module takes control the menu items are supplied from there
             self.state.menu = self.state.activeModule.getMenuItems()
-            if self.menuAlignLeft:
-                self.state.menu.insert(0, 'RUMBA.ENABLE')  # prepend
-            else:
-                self.state.menu.append('RUMBA.ENABLE')
             self.state.menuPage = 0
-            self.changeConfirm()  # close confirm dlg if present
-            self.onToggleMenu(newPage, self.state.menu, self.state)
+        self.changeConfirm()  # close confirm dlg if present
+        self.onToggleMenu(newPage, self.state.menu, self.state)
 
     def changeRequestRunning(self, running=False):
         """ Changes connection status """
@@ -486,6 +493,36 @@ KERNEL=="uinput", SUBSYSTEM=="misc", OPTIONS+="static_node=uinput", TAG+="uacces
             await self.state.activeModule.start()
             self.changeRequestRunning()
 
+    async def getConfirm(self, text, action):
+        """ Function for addons to get direct confirmation for a boolean request """
+        self.resetMenu()
+        self.state.confirmState = False
+        self.state.confirmText = text
+        self.state.confirmTarget = action
+        self.onToggleConfirm(action, self.state.confirmText, True, self.state)
+        # TODO:
+        # X move 'Press any key to confirm' to menu row (needs adjust in display)
+        # X im display nach confirmState is not None schauen und wenn ja 'press any key to confirm' und rotes X auf toggle anzeigen
+        # X move menuAlignLeft completely to display (here in updateMenuState & keyInput) and adapt cfg file (controller->display)
+        # X add confirm state to touch input
+        # X check all todos/change to xxx if necessary
+        # X check func/timeouts/menu/usbcontrl
+        # X comment new stuff (diese func, onInput handling und WifiD addon)
+        # - lint
+        # - checkin
+        # - deploy capi
+
+        self.confirmModal = asyncio.Event()
+        try:
+            await asyncio.wait_for(self.confirmModal.wait(), self.menuTimeout)
+        except asyncio.TimeoutError:
+            pass
+        resp = self.state.confirmState
+        self.state.confirmState = None
+        self.confirmModal = None
+        self.resetMenu()
+        return resp
+
     def changeConfirm(self, action=None):
         """ Sets confirm dialog """
         if self.state.confirmTarget != action:
@@ -495,16 +532,14 @@ KERNEL=="uinput", SUBSYSTEM=="misc", OPTIONS+="static_node=uinput", TAG+="uacces
                 self.state.confirmText = self.getModule(mod).getConfirmText(func)
             else:
                 self.state.confirmText = None
-            self.onToggleConfirm(action, self.state.confirmText, self.state)
+            self.onToggleConfirm(action, self.state.confirmText, False, self.state)
 
     def resetMenu(self):
         """ hides menu && resets confirm/'doublecklick' """
-        if self.state.rumbaActive:
-            self.log.debug('hiding menu')
-            if self.state.confirmTarget is not None:
-                self.changeConfirm()
-            if self.state.menuPage is not None:
-                self.updateMenuState()
+        self.log.debug('hiding menu')
+        if self.state.confirmTarget is not None:
+            self.changeConfirm()
+        self.updateMenuState()
 
     def startMenuTimeout(self):
         """ start/reset timeout to hide menu """
@@ -595,9 +630,9 @@ KERNEL=="uinput", SUBSYSTEM=="misc", OPTIONS+="static_node=uinput", TAG+="uacces
         self.log.debug('hook triggered: onToggleAlert(%s)', text)
 
     @hookspec
-    def onToggleConfirm(self, action, confirmText, state):
+    def onToggleConfirm(self, action, confirmText, confirmModal, state):
         """ Triggers every time a confirmation needs to be shown or ends ('doublecklick') """
-        self.pm.hook.onToggleConfirm(action=action, confirmText=confirmText, state=state)
+        self.pm.hook.onToggleConfirm(action=action, confirmText=confirmText, confirmModal=confirmModal, state=state)
         self.log.debug('hook triggered: onToggleConfirm(%s)', action)
 
     @hookspec

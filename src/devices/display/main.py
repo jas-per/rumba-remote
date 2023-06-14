@@ -64,10 +64,11 @@ class Handler():
         # implement touch here because of its shared state with the display
         if config.getboolean('touch', fallback=False):
             self.log.debug('Initializing touch support')
+            toggleAlignLeft = config.getboolean('controller', 'toggleAlignLeft', fallback=True)
             loop = asyncio.get_event_loop()
             self.eventQueue = asyncio.Queue()
             self.pygameHandler = loop.run_in_executor(None, self.pygameEventLoop, loop)
-            self.eventTask = asyncio.ensure_future(self._handleTouchEvents(controller))
+            self.eventTask = asyncio.ensure_future(self._handleTouchEvents(controller, toggleAlignLeft))
 
         # start tasks for clock and animations
         asyncio.ensure_future(self.initTasks())
@@ -143,7 +144,7 @@ class Handler():
             if event.type == pygame.FINGERUP:  # only interested in touch events
                 asyncio.run_coroutine_threadsafe(self.eventQueue.put(event), loop=loop)
 
-    async def _handleTouchEvents(self, controller):
+    async def _handleTouchEvents(self, controller, toggleAlignLeft):
         while True:
             event = await self.eventQueue.get()
             if event.type == pygame.QUIT:
@@ -165,11 +166,25 @@ class Handler():
 
                 self.log.debug('Touch event: x=(%s) y=(%s)', event.x, event.y)
 
-                if controller.state.menuPage is not None:
+                if controller.state.confirmState is not None:
+                    # modalConfirm
+                    action = 'MENU.TOGGLE'  # def is CANCEL
                     if event.y > 0.8:
-                        no = math.floor((event.x - 0.01) * len(controller.state.menu))
-                        self.log.debug('Touch-event: %s selected (no %s)', controller.state.menu[no], no)
-                        asyncio.ensure_future(controller.onInput(controller.state.menu[no]))
+                        no = math.floor((event.x - 0.01) * (len(controller.state.menu) + 1))
+                        if (toggleAlignLeft and no > 0) or no < len(controller.state.menu):
+                            # all menu items but toggle == accept
+                            action = controller.state.menu[0]
+                    self.log.debug('Touch-event: %s selected', action)
+                    asyncio.ensure_future(controller.onInput(action))
+                elif controller.state.menuPage is not None:
+                    if event.y > 0.8:
+                        no = math.floor((event.x - 0.01) * (len(controller.state.menu) + 1))
+                        if (toggleAlignLeft and no == 0) or no == len(controller.state.menu):
+                            action = controller.state.toggleAction
+                        else:
+                            action = controller.state.menu[(no - 1) if toggleAlignLeft else no]
+                        self.log.debug('Touch-event: %s selected (no %s)', action, no)
+                        asyncio.ensure_future(controller.onInput(action))
                     elif controller.state.confirmTarget is not None:
                         self.log.debug('Touch-event: Cancel confim')
                         asyncio.ensure_future(controller.onInput('MENU.TOGGLE'))
@@ -179,8 +194,8 @@ class Handler():
                 else:
                     if controller.state.jukebox.curSong is not None:
                         if self.scrnsvrRunning or event.y < 0.85:
-                            if controller.menuAlignLeft and event.x < 0.25 \
-                               or not controller.menuAlignLeft and event.x > 0.75:
+                            if toggleAlignLeft and event.x < 0.25 \
+                               or toggleAlignLeft and event.x > 0.75:
                                 self.log.debug('Touch-event: show menu')
                                 asyncio.ensure_future(controller.onInput('MENU.TOGGLE'))
                             else:
@@ -273,7 +288,7 @@ class Handler():
         if menuPage is None:
             self.redrawUI(state)
         else:
-            self.ui.updateMenu(menu)
+            self.ui.updateMenu(menu, state.toggleAction, state.confirmState)
         if self.scrnsvrActivated:
             self.startScrnsvrTimeout()
 
@@ -283,7 +298,7 @@ class Handler():
         self.redrawUI(state)
 
     @hookimpl
-    def onToggleConfirm(self, action, confirmText, state):
+    def onToggleConfirm(self, action, confirmText, confirmModal, state):
         """ Confirmation needs to be shown or ends ('doublecklick') """
         self.redrawUI(state)
 
@@ -295,7 +310,7 @@ class Handler():
         self.loaderTask.cancel()
         if self.scrnsvrTimer is not None:
             self.scrnsvrTimer.cancel()
-        if self.eventTask is not None:
+        if getattr(self, 'eventTask', False):
             pygame.event.post(pygame.event.Event(pygame.QUIT))
             pygame.event.pump()
             self.pygameHandler.cancel()

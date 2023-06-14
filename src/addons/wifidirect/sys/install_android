@@ -1,0 +1,8 @@
+############### Adding a shortcut to WifiDirect in Android ###############
+
+install eg ShortcutMaker
+https://play.google.com/store/apps/details?id=rk.android.app.shortcutmaker
+
+search for
+"com.android.settings.Settings$WifiP2pSettingsActivity"
+to create a shortcut to WifiDirect on home screen

@@ -55,6 +55,7 @@ class Display():
             if len(res) == 2:
                 self.displaySize = (res[0], res[1])
                 self.log.info('Using screen resolution from config: %s', self.displaySize)
+        self.toggleAlignLeft = config.getboolean('toggleAlignLeft', fallback=True)
         # init display & GUI
         if config.get('envSDL') is not None:
             os.environ["SDL_VIDEODRIVER"] = config.get('envSDL')
@@ -158,11 +159,11 @@ class Display():
             self.curlImg = 0
         pygame.display.update(surf)
 
-    def updateMenu(self, menu):
+    def updateMenu(self, menu, toggleAction, confirmModal):
         """ creates new menu pane and rotates/blits to screen surface """
         if menu is not None:
             self.log.debug('Update: menu changed')
-            btnBG = self.drawMenu(menu)
+            btnBG = self.drawMenu(menu, toggleAction, confirmModal)
             if self.rotate == 0:
                 surf = self.screen.blit(btnBG, (0, self.displaySize[1] - self.pxH(20)))
             elif self.rotate == 1:
@@ -178,7 +179,7 @@ class Display():
             # this should have been taken care of by the display handler
             self.log.error('ui.updateMenu() called without menu!')
 
-    def drawMenu(self, menu, target=None):
+    def drawMenu(self, menu, toggleAction, confirmModal=None, target=None):
         """ creates new menu pane """
         btnBG = pygameUtil.roundRect(
             (self.displaySize[0], self.pxH(20)),
@@ -187,10 +188,25 @@ class Display():
         )
         # works fine for menus with 3 to 8 menuitems on common sized displays
         # XXX: add a check and feedback when parsing config?
-        iconWidth = 100 // len(menu)
-        for idx, action in enumerate(menu):
-            icon = self.imageCache.getIcon(action)
-            btnBG.blit(icon, (self.pxW(3) + (idx * self.pxW(iconWidth)), self.pxH(3)))
+        iconWidth = 100 // (len(menu) + 1)
+        if confirmModal is None:
+            fullMenu = menu.copy()
+            if self.toggleAlignLeft:
+                fullMenu.insert(0, toggleAction)  # prepend toggle button
+            else:
+                fullMenu.append(toggleAction)
+            for idx, action in enumerate(fullMenu):
+                icon = self.imageCache.getIcon(action)
+                btnBG.blit(icon, (self.pxW(3) + (idx * self.pxW(iconWidth)), self.pxH(3)))
+        else:
+            icon = self.imageCache.getIcon('MENU.CANCEL')
+            btnBG.blit(icon, (self.pxW(3) if self.toggleAlignLeft else (4 * self.pxW(iconWidth)), self.pxH(3)))
+            pygameTxt.drawbox(
+                'Press any key to confirm',
+                (self.pxW(iconWidth) if self.toggleAlignLeft else self.pxW(1), self.pxH(4),
+                 (4 * self.pxW(iconWidth)), self.pxH(12)),
+                sysfontname="DejaVuSans", surf=btnBG
+            )
         if target is not None:
             target.blit(btnBG, (0, self.displaySize[1] - self.pxH(20)))
         return btnBG
@@ -225,8 +241,8 @@ class Display():
             if state.confirmTarget is not None or (state.alert != '' and state.rumbaActive):
                 self.drawDialog(state, target=newScreen)
             # menu
-            if state.menuPage is not None:
-                self.drawMenu(state.menu, target=newScreen)
+            if state.menuPage is not None or state.confirmState is not None:
+                self.drawMenu(state.menu, state.toggleAction, state.confirmState, target=newScreen)
             else:  # no menu - maybe slide-caption or position?
                 if caption is not None and bgImage is not None:
                     self.drawCaption(caption, target=newScreen)
@@ -373,7 +389,7 @@ class Display():
         return posBG
 
     def drawCaption(self, caption, target):
-        """ display caption/title of current screensver slide """
+        """ display caption/title of current screensaver slide """
         pygameTxt.draw(
             caption,
             (self.pxW(2), self.pxH(92)), surf=target,

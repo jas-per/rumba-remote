@@ -76,6 +76,12 @@ def readConfig(configFile=None):
         cfgPath = defaultFile if configFile is None else configFile
         raise ConfigError(f'"io.devices" not found, please define input/output devices in your config file: {cfgPath}')
 
+    initAddons = config.get('controller', 'initAddons', fallback=None)
+    if initAddons:
+        initAddons = [addon.strip() for addon in initAddons.split(',')]
+    else:
+        initAddons = []
+
     # init menu
     menuRows = config.get('controller', 'menuRow', fallback=None)
     if menuRows:
@@ -84,7 +90,6 @@ def readConfig(configFile=None):
             menuRows[idx] = [menuItem.strip() for menuItem in menuRow.split(',')]
     else:
         # XXX: make useable without menu configured
-        # move and mod config option menuAlignLeft in [io.display] section
         # for now: just quit!
         cfgPath = defaultFile if configFile is None else configFile
         raise ModuleNotFoundError(f'No menuRow defined\nin the [controller]-section of your config file:\n{cfgPath}')
@@ -95,11 +100,12 @@ def readConfig(configFile=None):
         },
         'controller': {
             'appDir': appDir,
+            'configDir': configDir,
             'menuRows': menuRows,
-            'menuTimeout': config.getint('controller', 'menuTimeout', fallback=5),
-            'menuAlignLeft': config.getboolean('controller', 'menuAlignLeft', fallback=True),
+            'menuTimeout': config.getint('controller', 'menuTimeout', fallback=10),
             'enableVideo': config.getboolean('controller', 'enableVideo', fallback=None),
             'addons': addons,
+            'initAddons': initAddons,
         },
         'jukebox': {
             'url': config.get('jukebox', 'url', fallback='http://127.0.0.1:23232/rest/'),

@@ -1,0 +1,48 @@
+DISCLAIMER:
+
+WPS security is completly broken when using a pin to authenticate!
+(see eg https://security.stackexchange.com/questions/150302/)
+So if you'd like to use WifiDirect you have to allow the pushbutton method only
+(config_methods=push_button in wpa_supplicant.conf)
+
+INSTALL:
+
+check wifi p2p capabilities of your wifi adapter first:
+iw list 
+"Supported interface modes"
+must include
+"P2P-client", "P2P-GO", "P2P-device"
+
+DELETE: /etc/wpa_supplicant/wpa_supplicant.conf
+otherwise wpa_supplicant will be run on startup
+and take over existing wireless interfaces!
+
+Install and configure isc-dhcp-server
+(eg apt-get install isc-dhcp-server)
+
+/etc/default/isc-dhcp-server
+
+INTERFACESv4="p2p-wlan0-0"
+INTERFACESv6=""
+
+/etc/dhcpd.conf:
+interface p2p-wlan0-0
+static ip_address=192.168.1.1/24
+
+/etc/dhcp/dhcpd.conf
+
+option domain-name "rumba";
+default-lease-time 86400;
+max-lease-time 86400;
+
+ddns-update-style none;
+authoritative;
+
+subnet 192.168.1.0 netmask 255.255.255.0 {
+  range 192.168.1.10 192.168.1.50;
+  option subnet-mask 255.255.255.0;
+  option broadcast-address 192.168.1.255;
+}
+
+Don't init the dhcp server on startup:
+systemctl disable isc-dhcp-server
