@@ -23,7 +23,7 @@ only features things needed so far to configure my own collection of devices,<br
 but should be extensible enough to expand to more usecases
 
 
-### install
+### Install
 ```
 apt-get install python3-pip python3-aiohttp python3-evdev 
 pip3 install pluggy
@@ -53,15 +53,13 @@ apt-get install fonts-dejavu fonts-freefont-ttf libsdl2-2.0-0 libsdl2-gfx-1.0-0 
 ```
 
 ### WifiDirect:
-```
-pip install DBussy
-```
 This addon integrates WifiDirect with WPS pushbutton method into the control interface.
 If you'd like to run the jukebox on an device not integrated into a home network
 eg in a car, battery powered jukebox etc connecting the android app by
 setting up a normal wireless access point with hostapd is often not very useful.
 (eg some versions of android disconnect from this network if your device does not provide proper internet)
 By using WifiDirect this is not a problem - you could even connect to another wifi access point simultaneously.
+
 The big issue with WifiDirect that its WPS security is completly broken unless you use
 the pushbutton method for authorization, hence the integration into this app.
 see `addons/wifidirect/sys/install_linux` for required wpa_supplicant/dhcp-server setup
