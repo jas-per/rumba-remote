@@ -45,6 +45,7 @@ class Handler():
                         "setup %s on %s pin %s ('input = %s')",
                         func, 'switch' if p else 'pushbutton', pin, cfg)
 
+                    # TODO: add cfg for pullup circuit pref
                     GPIO.setup(pin, GPIO.IN, pull_up_down=GPIO.PUD_DOWN)
                     GPIO.add_event_detect(
                         pin,

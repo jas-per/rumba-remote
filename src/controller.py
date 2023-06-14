@@ -500,18 +500,6 @@ KERNEL=="uinput", SUBSYSTEM=="misc", OPTIONS+="static_node=uinput", TAG+="uacces
         self.state.confirmText = text
         self.state.confirmTarget = action
         self.onToggleConfirm(action, self.state.confirmText, True, self.state)
-        # TODO:
-        # X move 'Press any key to confirm' to menu row (needs adjust in display)
-        # X im display nach confirmState is not None schauen und wenn ja 'press any key to confirm' und rotes X auf toggle anzeigen
-        # X move menuAlignLeft completely to display (here in updateMenuState & keyInput) and adapt cfg file (controller->display)
-        # X add confirm state to touch input
-        # X check all todos/change to xxx if necessary
-        # X check func/timeouts/menu/usbcontrl
-        # X comment new stuff (diese func, onInput handling und WifiD addon)
-        # - lint
-        # - checkin
-        # - deploy capi
-
         self.confirmModal = asyncio.Event()
         try:
             await asyncio.wait_for(self.confirmModal.wait(), self.menuTimeout)
