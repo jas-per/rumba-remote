@@ -31,6 +31,8 @@ class Wifidirect(BaseAddon):
 
         if self.config and self.config.get('cfgFile', False) and os.path.isfile(self.config.get('cfgFile')):
             cfgFile = self.config.get('cfgFile')
+        elif os.path.isfile(os.path.join(self.controller.configDir, 'p2p.conf')):
+            cfgFile = os.path.join(self.controller.configDir, 'p2p.conf')
         else:
             from shutil import copy
             addonCfgFile = os.path.join(os.path.dirname(os.path.realpath(__file__)), 'sys', 'p2p.conf')
@@ -117,7 +119,11 @@ class Wifidirect(BaseAddon):
                 name='ProvisionDiscoveryPBCRequest'
             )
             self.log.debug('Creating P2P-Group on %s', interface)
-            self.P2PDevice.GroupAdd({'persistent': ('b', True)})
+            self.log.debug('Using network configuration from wpa_supplicant cfg-file')
+            self.P2PDevice.GroupAdd({
+                'persistent': ('b', False),
+                'persistent_group_object': ('o', self.P2PDevice.PersistentGroups[0])
+            })
 
     @ravel.signal(name='GroupStarted', in_signature='a{sv}', arg_keys=('props',))
     async def onGroupStart(self, props):
