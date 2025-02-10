@@ -33,6 +33,12 @@ class Handler():
             for cfg in config.get("input").split('\n'):
                 try:
                     func, pin = self._parseConfig(cfg)
+                    # pullup vs pulldown (default)
+                    if pin.endswith('up'):
+                        resistor=GPIO.PUD_UP
+                        pin=pin[:-2]
+                    else:
+                        resistor=GPIO.PUD_DOWN
                     # switch vs pushbutton:
                     # supply pin through lambda to relay on/off state for switch
                     if pin.startswith('s'):
@@ -45,13 +51,12 @@ class Handler():
                         "setup %s on %s pin %s ('input = %s')",
                         func, 'switch' if p else 'pushbutton', pin, cfg)
 
-                    # TODO: add cfg for pullup circuit pref
-                    GPIO.setup(pin, GPIO.IN, pull_up_down=GPIO.PUD_DOWN)
+                    GPIO.setup(pin, GPIO.IN, pull_up_down=resistor)
                     GPIO.add_event_detect(
                         pin,
                         GPIO.RISING if p is None else GPIO.BOTH,  # trigger on both flanks vs just once
                         callback=lambda _, f=func, p=p: loop.call_soon_threadsafe(self._callAsync, f, p),
-                        bouncetime=400
+                        bouncetime=200
                     )
                     # call switch functions with initial state after startup
                     if p is not None:
